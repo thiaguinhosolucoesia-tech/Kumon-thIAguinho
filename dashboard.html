@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel do Orientador - Kumon</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#0078c1">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+</head>
+<body id="dashboard-page">
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
+        <div class="loader"></div>
+        <p class="text-cyan-400 mt-4">A carregar Painel do Orientador...</p>
+    </div>
+
+    <div id="app-container" class="container hidden">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>Painel do Orientador</h1>
+                    <p class="unit-name">Visão Geral da Unidade</p>
+                </div>
+                <div class="user-info">
+                    <p id="userEmail" class="font-semibold"></p>
+                    <div class="header-actions">
+                        <button id="logout-button" class="logout-btn">Sair</button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <section class="section-box">
+                <h2>Análise de Performance dos Gestores</h2>
+                <div id="dashboard-content">
+                    <p>Módulo em desenvolvimento. A estrutura de acesso já está funcional e pronta para receber as análises consolidadas.</p>
+                </div>
+            </section>
+        </main>
+        
+        <footer><p>Desenvolvido com 🤖, por thIAguinho Soluções</p></footer>
+    </div>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="js/config.js"></script>
+    <script>
+        const App = {
+            init(user, firestoreInstance) {
+                document.getElementById('loading-overlay').style.display = 'none';
+                document.getElementById('app-container').classList.remove('hidden');
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('logout-button').addEventListener('click', () => {
+                    localStorage.removeItem('kumonUserSession');
+                    firebase.auth().signOut();
+                });
+                console.log("Painel do Orientador carregado. Próximo passo: agregar dados de todos os gestores.");
+            }
+        };
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
