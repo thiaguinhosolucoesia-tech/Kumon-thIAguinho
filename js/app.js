@@ -1,6 +1,7 @@
 const App = {
     state: {
         userId: null,
+        userRole: null,
         db: null,
         displayedDate: new Date(),
         isEditing: true,
@@ -10,19 +11,16 @@ const App = {
     },
     elements: {},
 
-    // =====================================================================
-    // ======================== INICIALIZAÇÃO E SETUP ======================
-    // =====================================================================
-
     init(user, firestoreInstance) {
         document.getElementById('loading-overlay').style.display = 'none';
         document.getElementById('app-container').classList.remove('hidden');
 
         this.state.userId = user.uid;
+        this.state.userRole = user.role;
         this.state.db = firestoreInstance;
-        document.getElementById('userEmail').textContent = user.email;
-
+        
         this.mapDOMElements();
+        this.elements.userEmail.textContent = user.email;
         this.addEventListeners();
 
         this.populateActionBank();
@@ -34,14 +32,12 @@ const App = {
 
     mapDOMElements() {
         this.elements = {
-            // Geral
+            userEmail: document.getElementById('userEmail'),
             logoutButton: document.getElementById('logout-button'),
             systemOptionsBtn: document.getElementById('system-options-btn'),
             currentDateDisplay: document.getElementById('currentDateDisplay'),
             prevDayBtn: document.getElementById('prevDayBtn'),
             nextDayBtn: document.getElementById('nextDayBtn'),
-
-            // Diário de Bordo
             planningFieldset: document.getElementById('planningFieldset'),
             reviewFieldset: document.getElementById('reviewFieldset'),
             endDayBtn: document.getElementById('endDayBtn'),
@@ -56,8 +52,6 @@ const App = {
             kpiCancelamentos: document.getElementById('kpiCancelamentos'),
             energyLevel: document.getElementById('energyLevel'),
             actionBankContent: document.getElementById('actionBank-content'),
-
-            // Relatórios
             dailyReportSection: document.getElementById('dailyReportSection'),
             dailyReportContent: document.getElementById('dailyReportContent'),
             downloadDailyReportBtn: document.getElementById('downloadDailyReportBtn'),
@@ -65,16 +59,12 @@ const App = {
             weeklySummaryContent: document.getElementById('weeklySummaryContent'),
             downloadWeeklyReportBtn: document.getElementById('downloadWeeklyReportBtn'),
             showWeeklySummaryBtn: document.getElementById('showWeeklySummaryBtn'),
-
-            // Inventário
             materialSelect: document.getElementById('materialSelect'),
             materialQty: document.getElementById('materialQty'),
             addStockBtn: document.getElementById('addStockBtn'),
             removeStockBtn: document.getElementById('removeStockBtn'),
             inventoryTbody: document.getElementById('inventory-tbody'),
             uploadFileBtn: document.getElementById('uploadFileBtn'),
-
-            // Módulo de Alunos
             addStudentBtn: document.getElementById('addStudentBtn'),
             studentSearch: document.getElementById('studentSearch'),
             studentList: document.getElementById('student-list'),
@@ -97,7 +87,6 @@ const App = {
     },
 
     addEventListeners() {
-        // Geral e Diário
         this.elements.logoutButton.addEventListener('click', () => firebase.auth().signOut());
         this.elements.systemOptionsBtn.addEventListener('click', () => this.promptForReset());
         this.elements.prevDayBtn.addEventListener('click', () => this.navigateDays(-1));
@@ -107,13 +96,9 @@ const App = {
         this.elements.showWeeklySummaryBtn.addEventListener('click', () => this.generateWeeklyAnalysis());
         this.elements.downloadDailyReportBtn.addEventListener('click', () => this.downloadReport('daily'));
         this.elements.downloadWeeklyReportBtn.addEventListener('click', () => this.downloadReport('weekly'));
-
-        // Inventário
-        this.elements.addStockBtn.addEventListener('click', () => this.updateStock('add'));
-        this.elements.removeStockBtn.addEventListener('click', () => this.updateStock('remove'));
+        this.elements.addStockBtn.addEventListener('click', () => this.updateStock('add', null, null, false));
+        this.elements.removeStockBtn.addEventListener('click', () => this.updateStock('remove', null, null, false));
         this.elements.uploadFileBtn.addEventListener('click', () => this.openUploadWidget());
-
-        // Alunos
         this.elements.addStudentBtn.addEventListener('click', () => this.openStudentModal());
         this.elements.studentSearch.addEventListener('input', () => this.renderStudentList());
         this.elements.closeModalBtn.addEventListener('click', () => this.closeStudentModal());
@@ -127,44 +112,34 @@ const App = {
         this.elements.studentModal.addEventListener('click', (e) => { if (e.target === this.elements.studentModal) this.closeStudentModal(); });
     },
 
-    // =====================================================================
-    // ======================== LÓGICA DE DADOS (CORE) =====================
-    // =====================================================================
-
-    getDocRef(collection, docId) {
-        if (!this.state.userId) return null;
-        return this.state.db.collection('gestores').doc(this.state.userId).collection(collection).doc(docId);
+    getDocRef(collection, docId, uid = null) {
+        const targetUid = uid || this.state.userId;
+        if (!targetUid) return null;
+        return this.state.db.collection('gestores').doc(targetUid).collection(collection).doc(docId);
     },
 
     getDateString: date => date.toISOString().split('T')[0],
     parseDateString: str => new Date(str + 'T12:00:00Z'),
 
-    async fetchData(collection, docId) {
-        const docRef = this.getDocRef(collection, docId);
+    async fetchData(collection, docId, uid = null) {
+        const docRef = this.getDocRef(collection, docId, uid);
         if (!docRef) return null;
         const doc = await docRef.get();
         return doc.exists ? doc.data() : null;
     },
 
-    async saveData(collection, docId, data) {
-        const docRef = this.getDocRef(collection, docId);
+    async saveData(collection, docId, data, uid = null) {
+        const docRef = this.getDocRef(collection, docId, uid);
         if (docRef) await docRef.set(data, { merge: true });
     },
-
-    // =====================================================================
-    // ==================== MÓDULO DIÁRIO DE BORDO & GERAL =================
-    // =====================================================================
 
     async renderDay(dateString) {
         this.state.displayedDate = this.parseDateString(dateString);
         this.elements.currentDateDisplay.textContent = this.state.displayedDate.toLocaleDateString('pt-BR', { dateStyle: 'full' });
-
         this.elements.dailyReportSection.classList.add('hidden');
         this.elements.weeklySummarySection.classList.add('hidden');
-
         const data = await this.fetchData('diario', dateString);
         const ddb = data?.diarioDeBordo || {};
-
         this.elements.dailyFocus.value = ddb.dailyFocus || '';
         this.elements.criticalTasks.value = ddb.criticalTasks || '';
         this.elements.mainAchievement.value = ddb.mainAchievement || '';
@@ -172,10 +147,8 @@ const App = {
         this.elements.kpiMatriculas.value = ddb.kpiMatriculas || 0;
         this.elements.kpiCancelamentos.value = ddb.kpiCancelamentos || 0;
         this.elements.energyLevel.value = ddb.energyLevel || 3;
-
         this.elements.todoList.innerHTML = '';
         (ddb.todo || []).forEach(task => this.createTodoElement(task));
-
         this.state.isEditing = !ddb.isFinalized;
         this.toggleFieldsDisabled();
     },
@@ -199,7 +172,7 @@ const App = {
             this.elements.endDayBtn.classList.remove('edit-mode');
         }
     },
-
+    
     navigateDays(direction) {
         this.state.displayedDate.setDate(this.state.displayedDate.getDate() + direction);
         this.renderDay(this.getDateString(this.state.displayedDate));
@@ -209,8 +182,6 @@ const App = {
         const taskText = text || this.elements.newTodoInput.value.trim();
         if (taskText) {
             this.createTodoElement({ text: taskText, completed: false });
-        }
-        if (!text) {
             this.elements.newTodoInput.value = '';
         }
     },
@@ -257,8 +228,6 @@ const App = {
                 await this.saveData('diario', nextDayString, nextDayData);
             }
             this.state.isEditing = false;
-            this.toggleFieldsDisabled();
-            alert("Dia finalizado com sucesso! O relatório do dia foi gerado abaixo.");
         } else {
             this.state.isEditing = true;
             const data = await this.fetchData('diario', this.getDateString(this.state.displayedDate));
@@ -266,8 +235,8 @@ const App = {
                 data.diarioDeBordo.isFinalized = false;
                 await this.saveData('diario', this.getDateString(this.state.displayedDate), data);
             }
-            this.toggleFieldsDisabled();
         }
+        this.renderDay(this.getDateString(this.state.displayedDate));
     },
 
     async generateDailyReport(dateString) {
@@ -294,7 +263,7 @@ const App = {
         this.elements.dailyReportSection.classList.remove('hidden');
         this.elements.dailyReportSection.scrollIntoView({ behavior: 'smooth' });
     },
-
+    
     async generateWeeklyAnalysis() {
         this.elements.weeklySummarySection.classList.remove('hidden');
         this.elements.weeklySummaryContent.textContent = "A gerar análise...";
@@ -323,14 +292,14 @@ const App = {
             analysisText += `DIAGNÓSTICO GERAL:\n- Saldo de Alunos na Semana: ${totalMatriculas - totalCancelamentos} (Matrículas: ${totalMatriculas}, Cancelamentos: ${totalCancelamentos})\n- Nível de Energia Médio da Equipa: ${avgEnergy.toFixed(1)}/5\n\n`;
             analysisText += `ANÁLISE ESTRATÉGICA:\n`;
             if ((totalMatriculas - totalCancelamentos) < 0) {
-                analysisText += `• PONTO DE ATENÇÃO (RETENÇÃO): O saldo negativo de alunos é um sinal crítico. É crucial analisar as causas dos cancelamentos desta semana.\n`;
+                analysisText += `• PONTO DE ATENÇÃO (RETENÇÃO): O saldo negativo de alunos é um sinal crítico.\n`;
             } else if ((totalMatriculas - totalCancelamentos) > 2) {
-                analysisText += `• PONTO FORTE (CAPTAÇÃO): Excelente resultado! As estratégias de marketing estão a funcionar.\n`;
+                analysisText += `• PONTO FORTE (CAPTAÇÃO): Excelente resultado! As estratégias de captação estão a funcionar.\n`;
             } else {
-                analysisText += `• PONTO DE EQUILÍBRIO: A unidade manteve a sua base de alunos. Foco na fidelização.\n`;
+                analysisText += `• PONTO DE EQUILÍBRIO: A unidade manteve a sua base de alunos.\n`;
             }
             if (avgEnergy < 2.8 && avgEnergy > 0) {
-                analysisText += `• PONTO DE ATENÇÃO (EQUIPA): A energia média consistentemente baixa é um forte indicador de desgaste. Avalie a sobrecarga de tarefas e promova o reconhecimento.\n`;
+                analysisText += `• PONTO DE ATENÇÃO (EQUIPA): A energia média baixa pode indicar desgaste. Avalie a sobrecarga de tarefas.\n`;
             }
         }
         this.elements.weeklySummaryContent.textContent = analysisText;
@@ -338,41 +307,27 @@ const App = {
     },
 
     downloadReport(type) {
-        let content = '';
-        let dateString = this.getDateString(this.state.displayedDate);
-        let filename = '';
-        if (type === 'daily') {
-            content = this.elements.dailyReportContent.textContent;
-            filename = `Relatorio_Diario_${dateString}.txt`;
-        } else {
-            content = this.elements.weeklySummaryContent.textContent;
-            filename = `Relatorio_Semanal_${dateString}.txt`;
-        }
-        if (!content || !content.trim() || content.includes("A gerar análise...")) {
+        const content = (type === 'daily') ? this.elements.dailyReportContent.textContent : this.elements.weeklySummaryContent.textContent;
+        if (!content || content.includes("A gerar análise...")) {
             alert('Não há conteúdo no relatório para ser descarregado.');
             return;
         }
+        const dateString = this.getDateString(this.state.displayedDate);
+        const filename = (type === 'daily') ? `Relatorio_Diario_${dateString}.txt` : `Relatorio_Semanal_${dateString}.txt`;
         const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         a.download = filename;
-        document.body.appendChild(a);
         a.click();
-        document.body.removeChild(a);
         URL.revokeObjectURL(url);
     },
 
     promptForReset() {
         const code = prompt("Para aceder às opções de sistema, digite o código de segurança:");
-        if (code === '*177') {
-            const confirmation = prompt("ATENÇÃO: AÇÃO IRREVERSÍVEL!\nIsto irá apagar TODOS os seus diários, inventário e DADOS DE ALUNOS para SEMPRE.\n\nPara confirmar, digite 'APAGAR TUDO' e clique em OK.");
-            if (confirmation === 'APAGAR TUDO') {
-                this.hardResetUserData();
-            } else {
-                alert("Operação de reset cancelada.");
-            }
-        } else if (code !== null) {
+        if (code === '*177' && confirm("ATENÇÃO: AÇÃO IRREVERSÍVEL!\nIsto irá apagar TODOS os dados (diários, inventário e alunos).\n\nPara confirmar, clique em OK.")) {
+            this.hardResetUserData();
+        } else if (code && code !== '*177') {
             alert("Código incorreto.");
         }
     },
@@ -381,28 +336,27 @@ const App = {
         alert("A iniciar o reset completo do sistema. A página será recarregada ao concluir.");
         try {
             const collections = ['diario', 'inventario', 'alunos'];
-            for (const collectionName of collections) {
-                const querySnapshot = await this.state.db.collection('gestores').doc(this.state.userId).collection(collectionName).get();
-                if (querySnapshot.empty) continue;
+            for (const name of collections) {
+                const querySnapshot = await this.getDocRef(name, '').get();
                 const batch = this.state.db.batch();
                 querySnapshot.forEach(doc => batch.delete(doc.ref));
                 await batch.commit();
             }
+            await this.saveData('alunos', 'lista_alunos', { students: {} });
             alert("Sistema resetado com sucesso.");
             location.reload();
         } catch (error) {
-            console.error("Erro no reset:", error);
             alert("Ocorreu um erro ao tentar resetar o sistema.");
         }
     },
-
+    
     populateActionBank() {
         const actions = {
-            "🧠 Análise Pedagógica Individual": ["Identificar 3 alunos 'Longo Prazo' (acima de 2 anos) e agendar 'Reunião de Metas' com os pais.", "Revisar o tempo de conclusão dos blocos de 5 alunos em estágio inicial. Estão demasiado rápidos ou lentos?", "Analisar as pastas de 3 alunos que apresentaram erros de repetição e planear uma orientação individual.", "Verificar a programação de material de 5 alunos próximos a mudarem de estágio."],
-            "👨‍👩‍👧 Comunicação com os Pais": ["Ligar para 2 pais de alunos novos (menos de 3 meses) apenas para dar um feedback positivo e perguntar como está a rotina em casa.", "Enviar um e-mail para a base de pais com um artigo sobre a importância da 'tarefa de casa bem feita'.", "Identificar um aluno com dificuldade e agendar uma reunião de alinhamento com os pais, já com um plano de ação em mãos.", "Preparar e enviar o 'Boletim de Desempenho Mensal' para os alunos do Estágio G em diante."],
-            "🤝 Gestão da Equipe e Treinamento": ["Realizar um minitreinamento de 10 min sobre a 'Importância do Elogio' durante a correção.", "Observar por 15 minutos a interação de um auxiliar com os alunos e preparar um feedback construtivo.", "Delegar a tarefa de organização do estoque de blocos para um membro da equipa.", "Verificar se todos os treinamentos online obrigatórios da franquia estão em dia para toda a equipa."],
-            "🏢 Processos e Ambiente da Unidade": ["Auditar o estoque dos 5 estágios mais comuns (ex: Mat. 4A, D, G; Port. AI, F) e verificar o ponto de pedido.", "Cronometrar o tempo médio de atendimento na receção em horário de pico para identificar gargalos.", "Verificar a limpeza e organização da 'Sala dos Pais' ou área de espera.", "Checar o funcionamento de todos os equipamentos (tablets, cronómetros, ar condicionado)."],
-            "🚀 Captação e Marketing": ["Publicar um 'caso de sucesso' anónimo (ex: 'aluno avançou 2 anos escolares em 1') nas redes sociais.", "Entrar em contato com uma escola parceira para agendar uma visita ou evento conjunto.", "Analisar os dados dos últimos 10 novos alunos para identificar o principal canal de captação (indicação, fachada, etc.).", "Gravar um vídeo curto (1 min) para o Instagram com uma dica de estudo para os pais."]
+            "🧠 Análise Pedagógica": ["Analisar pastas de 3 alunos com repetição.", "Verificar programação de 5 alunos próximos a mudar de estágio."],
+            "👨‍👩‍👧 Comunicação com Pais": ["Ligar para 2 pais de alunos novos para feedback positivo.", "Agendar reunião com pais de aluno com dificuldade."],
+            "🤝 Gestão da Equipe": ["Mini-treinamento de 10 min sobre 'Elogio Eficaz'.", "Delegar organização do estoque de blocos."],
+            "🏢 Processos da Unidade": ["Auditar estoque dos 5 estágios mais comuns.", "Verificar limpeza da área de espera."],
+            "🚀 Captação e Marketing": ["Publicar um 'caso de sucesso' nas redes sociais.", "Contactar uma escola parceira para evento."]
         };
         let html = '';
         for (const category in actions) {
@@ -414,17 +368,12 @@ const App = {
         html += `<div class="button-container"><button id="add-selected-actions-btn" class="btn">Adicionar Selecionadas ao Dia</button></div>`;
         this.elements.actionBankContent.innerHTML = html;
         document.getElementById('add-selected-actions-btn').addEventListener('click', () => {
-            const selectedActions = this.elements.actionBankContent.querySelectorAll('.action-checkbox:checked');
-            selectedActions.forEach(checkbox => {
-                this.addTodoItem(checkbox.nextElementSibling.textContent);
-                checkbox.checked = false;
+            this.elements.actionBankContent.querySelectorAll('.action-checkbox:checked').forEach(cb => {
+                this.addTodoItem(cb.nextElementSibling.textContent);
+                cb.checked = false;
             });
         });
     },
-
-    // =====================================================================
-    // ======================== MÓDULO DE INVENTÁRIO =======================
-    // =====================================================================
 
     populateMaterialSelect() {
         const materiais = ["Matemática 7A", "Matemática 6A", "Matemática 5A", "Matemática 4A", "Matemática 3A", "Matemática 2A", "Matemática A", "Matemática B", "Matemática C", "Matemática D", "Matemática E", "Matemática F", "Matemática G", "Matemática H", "Matemática I", "Matemática J", "Matemática K", "Matemática L", "Matemática M", "Matemática N", "Matemática O", "Português 7A", "Português 6A", "Português 5A", "Português 4A", "Português 3A", "Português 2A", "Português AI", "Português AII", "Português BI", "Português BII", "Português CI", "Português CII", "Português D", "Português E", "Português F", "Português G", "Português H", "Português I", "Inglês 5A", "Inglês 4A", "Inglês 3A", "Inglês 2A", "Inglês A", "Inglês B", "Inglês C", "Inglês D", "Inglês E", "Inglês F", "Inglês G", "Inglês H", "Inglês I", "Inglês J", "Inglês K", "Inglês L", "Inglês M", "Inglês N", "Inglês O"];
@@ -441,74 +390,63 @@ const App = {
         const defaultMessage = '<tr><td colspan="3">Nenhum material no estoque.</td></tr>';
         this.elements.inventoryTbody.innerHTML = defaultMessage;
         const sortedMaterials = Object.keys(this.state.inventory).sort();
-        if (sortedMaterials.length > 0) {
-            let hasStock = false;
-            let html = '';
-            for (const materialId of sortedMaterials) {
-                const item = this.state.inventory[materialId];
-                const qty = item.qty || 0;
-                if (qty > 0) {
-                    hasStock = true;
-                    const fileLink = item.fileUrl ? `<a href="${item.fileUrl}" target="_blank" rel="noopener noreferrer">Ver Ficheiro</a>` : 'Nenhum';
-                    html += `<tr><td>${materialId.replace(/_/g, ' ')}</td><td>${qty}</td><td>${fileLink}</td></tr>`;
-                }
-            }
-            if (hasStock) { this.elements.inventoryTbody.innerHTML = html; }
-        }
-    },
+        if (sortedMaterials.length === 0) return;
 
-    async updateStock(action) {
-        const materialId = this.elements.materialSelect.value;
-        const qty = parseInt(this.elements.materialQty.value, 10);
-        if (!materialId || isNaN(qty) || qty <= 0) {
-            alert("Selecione um material e insira uma quantidade válida.");
+        const html = sortedMaterials.map(materialId => {
+            const item = this.state.inventory[materialId];
+            if (!item.qty || item.qty <= 0) return '';
+            const fileLink = item.fileUrl ? `<a href="${item.fileUrl}" target="_blank" rel="noopener noreferrer">Ver Ficheiro</a>` : 'Nenhum';
+            return `<tr><td>${materialId.replace(/_/g, ' ')}</td><td>${item.qty}</td><td>${fileLink}</td></tr>`;
+        }).join('');
+
+        if (html) this.elements.inventoryTbody.innerHTML = html;
+    },
+    
+    async updateStock(action, qty = null, materialId = null, isSilent = false) {
+        const matId = materialId || this.elements.materialSelect.value;
+        const quantity = qty || parseInt(this.elements.materialQty.value, 10);
+        
+        if (!matId || isNaN(quantity) || quantity <= 0) {
+            if (!isSilent) alert("Selecione um material e insira uma quantidade válida.");
             return;
         }
-        this.state.inventory[materialId] = this.state.inventory[materialId] || { qty: 0 };
-        const currentQty = this.state.inventory[materialId].qty;
-        if (action === 'remove' && currentQty < qty) {
-            alert(`Não é possível dar baixa em ${qty} unidades. Estoque atual: ${currentQty}.`);
-            return;
+
+        const currentQty = this.state.inventory[matId]?.qty || 0;
+
+        if (action === 'remove' && currentQty < quantity) {
+            if (!isSilent) {
+                alert(`Estoque insuficiente de ${matId.replace(/_/g, ' ')}. Estoque atual: ${currentQty}. A programação será feita, mas o estoque ficará negativo.`);
+            }
         }
-        this.state.inventory[materialId].qty = (action === 'add') ? currentQty + qty : currentQty - qty;
+        
+        const newQty = (action === 'add') ? currentQty + quantity : currentQty - quantity;
+        this.state.inventory[matId] = { ...this.state.inventory[matId], qty: newQty };
+        
         await this.saveData('inventario', 'estoque', { materiais: this.state.inventory });
         this.renderInventory();
     },
-
+    
     openUploadWidget() {
         const materialId = this.elements.materialSelect.value;
-        if (!materialId) {
-            alert("Selecione um material para anexar um ficheiro.");
-            return;
-        }
-        if (!cloudinaryConfig || !cloudinaryConfig.cloudName || !cloudinaryConfig.uploadPreset) {
-            alert("ERRO: As chaves do Cloudinary não estão configuradas no ficheiro js/config.js.");
-            return;
-        }
-        const uploadWidget = cloudinary.createUploadWidget({
-            cloudName: cloudinaryConfig.cloudName,
-            uploadPreset: cloudinaryConfig.uploadPreset,
-            folder: `${this.state.userId}/inventario`,
-            tags: [this.state.userId, 'inventario', materialId]
+        if (!materialId) return alert("Selecione um material para anexar um ficheiro.");
+        if (!window.cloudinary || !cloudinaryConfig) return alert("ERRO: Configuração do Cloudinary não encontrada.");
+        
+        cloudinary.createUploadWidget({
+            cloudName: cloudinaryConfig.cloudName, uploadPreset: cloudinaryConfig.uploadPreset,
+            folder: `${this.state.userId}/inventario`, tags: [this.state.userId, 'inventario', materialId]
         }, (error, result) => {
-            if (!error && result && result.event === "success") {
+            if (!error && result?.event === "success") {
                 this.saveFileUrlToInventory(materialId, result.info.secure_url);
             }
-        });
-        uploadWidget.open();
+        }).open();
     },
 
     async saveFileUrlToInventory(materialId, fileUrl) {
-        this.state.inventory[materialId] = this.state.inventory[materialId] || { qty: 0 };
-        this.state.inventory[materialId].fileUrl = fileUrl;
+        this.state.inventory[materialId] = { ...this.state.inventory[materialId], fileUrl: fileUrl };
         await this.saveData('inventario', 'estoque', { materiais: this.state.inventory });
         this.renderInventory();
         alert(`Ficheiro anexado ao material ${materialId.replace(/_/g, ' ')} com sucesso!`);
     },
-
-    // =====================================================================
-    // ======================= MÓDULO DE ALUNOS (REVISADO) =================
-    // =====================================================================
 
     async loadStudents() {
         try {
@@ -517,45 +455,35 @@ const App = {
             this.renderStudentList();
         } catch (error) {
             console.error('Erro ao carregar alunos:', error);
-            alert('Não foi possível carregar os dados dos alunos.');
         }
     },
 
     renderStudentList() {
         const searchTerm = this.elements.studentSearch.value.toLowerCase();
-        const filteredStudents = Object.entries(this.state.students).filter(([id, student]) =>
-            student.name.toLowerCase().includes(searchTerm) ||
-            student.responsible.toLowerCase().includes(searchTerm)
-        );
+        const filtered = Object.entries(this.state.students).filter(([,s]) => s.name.toLowerCase().includes(searchTerm) || s.responsible.toLowerCase().includes(searchTerm));
 
-        if (filteredStudents.length === 0) {
-            this.elements.studentList.innerHTML = `<div class="empty-state"><p>📚 ${searchTerm ? 'Nenhum aluno encontrado.' : 'Nenhum aluno cadastrado.'}</p><p>Clique em "Adicionar Novo Aluno" para começar!</p></div>`;
+        if (filtered.length === 0) {
+            this.elements.studentList.innerHTML = `<div class="empty-state"><p>📚 Nenhum aluno encontrado.</p></div>`;
             return;
         }
 
-        this.elements.studentList.innerHTML = filteredStudents
-            .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-            .map(([id, student]) => `
-                <div class="student-card" onclick="App.openStudentModal('${id}')">
-                    <div class="student-card-header">
-                        <div>
-                            <h3 class="student-name">${student.name}</h3>
-                            <p class="student-responsible">Responsável: ${student.responsible}</p>
-                        </div>
-                    </div>
-                    <div class="student-stages">
-                        ${student.mathStage ? `<div class="stage-item"><span class="stage-label">Mat</span>${student.mathStage}</div>` : ''}
-                        ${student.portStage ? `<div class="stage-item"><span class="stage-label">Port</span>${student.portStage}</div>` : ''}
-                        ${student.engStage ? `<div class="stage-item"><span class="stage-label">Ing</span>${student.engStage}</div>` : ''}
-                    </div>
+        this.elements.studentList.innerHTML = filtered.sort(([,a],[,b]) => a.name.localeCompare(b.name)).map(([id, s]) => `
+            <div class="student-card" onclick="App.openStudentModal('${id}')">
+                <div class="student-card-header">
+                    <div><h3 class="student-name">${s.name}</h3><p class="student-responsible">Resp: ${s.responsible}</p></div>
                 </div>
-            `).join('');
+                <div class="student-stages">
+                    ${s.mathStage ? `<div class="stage-item"><span class="stage-label">Mat</span>${s.mathStage}</div>` : ''}
+                    ${s.portStage ? `<div class="stage-item"><span class="stage-label">Port</span>${s.portStage}</div>` : ''}
+                    ${s.engStage ? `<div class="stage-item"><span class="stage-label">Ing</span>${s.engStage}</div>` : ''}
+                </div>
+            </div>`).join('');
     },
 
     openStudentModal(studentId = null) {
         this.state.currentStudentId = studentId;
+        this.elements.studentForm.reset();
         this.elements.studentModal.classList.remove('hidden');
-        this.elements.studentForm.reset(); // Limpa o formulário sempre ao abrir
 
         if (studentId) {
             const student = this.state.students[studentId];
@@ -569,13 +497,13 @@ const App = {
             document.getElementById('engStage').value = student.engStage || '';
             this.elements.deleteStudentBtn.style.display = 'block';
             this.loadStudentHistories(studentId);
-            this.elements.studentAnalysisContent.textContent = 'Clique em "Gerar Nova Análise" para começar.';
+            this.elements.studentAnalysisContent.textContent = 'Clique em "Gerar Nova Análise".';
         } else {
             this.elements.modalTitle.textContent = '👨‍🎓 Adicionar Novo Aluno';
             this.elements.studentIdInput.value = '';
             this.elements.deleteStudentBtn.style.display = 'none';
             this.clearStudentHistories();
-            this.elements.studentAnalysisContent.textContent = 'Salve o aluno para poder gerar uma análise.';
+            this.elements.studentAnalysisContent.textContent = 'Salve o aluno para gerar uma análise.';
         }
         this.switchTab('programming');
     },
@@ -593,10 +521,8 @@ const App = {
     },
 
     async saveStudent() {
-        if (!this.elements.studentForm.checkValidity()) {
-            this.elements.studentForm.reportValidity();
-            return;
-        }
+        if (!this.elements.studentForm.checkValidity()) return this.elements.studentForm.reportValidity();
+        
         const studentId = this.elements.studentIdInput.value || Date.now().toString();
         const studentData = {
             name: document.getElementById('studentName').value.trim(),
@@ -605,99 +531,91 @@ const App = {
             mathStage: document.getElementById('mathStage').value.trim(),
             portStage: document.getElementById('portStage').value.trim(),
             engStage: document.getElementById('engStage').value.trim(),
-            programmingHistory: this.state.students[studentId]?.programmingHistory || [],
-            reportHistory: this.state.students[studentId]?.reportHistory || [],
-            performanceLog: this.state.students[studentId]?.performanceLog || [],
-            createdAt: this.state.students[studentId]?.createdAt || new Date().toISOString(),
+        };
+
+        this.state.students[studentId] = {
+            ...(this.state.students[studentId] || {}),
+            ...studentData,
             updatedAt: new Date().toISOString()
         };
-        this.state.students[studentId] = studentData;
-        try {
-            await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
-            this.renderStudentList();
-            if (!this.state.currentStudentId) {
-                this.state.currentStudentId = studentId;
-                this.elements.studentIdInput.value = studentId;
-                this.elements.modalTitle.textContent = `📋 Ficha de ${studentData.name}`;
-                this.elements.deleteStudentBtn.style.display = 'block';
-            }
-            alert('Aluno salvo com sucesso!');
-        } catch (error) {
-            console.error('Erro ao salvar aluno:', error);
-            alert('Erro ao salvar aluno. Tente novamente.');
+        if (!this.state.students[studentId].createdAt) {
+            this.state.students[studentId].createdAt = new Date().toISOString();
         }
+
+        await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
+        this.renderStudentList();
+        this.openStudentModal(studentId);
+        alert('Aluno salvo com sucesso!');
     },
 
     async deleteStudent() {
         if (!this.state.currentStudentId) return;
-        const studentName = this.state.students[this.state.currentStudentId].name;
-        if (!confirm(`Tem certeza que deseja excluir o aluno "${studentName}"? Esta ação é irreversível.`)) return;
+        if (!confirm(`Excluir "${this.state.students[this.state.currentStudentId].name}"? Ação irreversível.`)) return;
+        
         delete this.state.students[this.state.currentStudentId];
-        try {
-            await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
-            this.renderStudentList();
-            this.closeStudentModal();
-            alert('Aluno excluído com sucesso!');
-        } catch (error) {
-            console.error('Erro ao excluir aluno:', error);
-            alert('Erro ao excluir aluno. Tente novamente.');
-        }
+        await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
+        this.renderStudentList();
+        this.closeStudentModal();
+        alert('Aluno excluído!');
     },
 
     loadStudentHistories(studentId) {
-        const student = this.state.students[studentId];
-        if (!student) return this.clearStudentHistories();
-        this.renderHistory('programmingHistory', student.programmingHistory || []);
-        this.renderHistory('reportHistory', student.reportHistory || []);
-        this.renderHistory('performanceLog', student.performanceLog || []);
+        const s = this.state.students[studentId];
+        if (!s) return this.clearStudentHistories();
+        this.renderHistory('programmingHistory', s.programmingHistory || []);
+        this.renderHistory('reportHistory', s.reportHistory || []);
+        this.renderHistory('performanceLog', s.performanceLog || []);
     },
 
     clearStudentHistories() {
-        this.elements.programmingHistory.innerHTML = '<p>Nenhuma programação registrada.</p>';
-        this.elements.reportHistory.innerHTML = '<p>Nenhum boletim registrado.</p>';
-        this.elements.performanceHistory.innerHTML = '<p>Nenhum registro de desempenho.</p>';
+        this.elements.programmingHistory.innerHTML = '<p>Nenhum registro.</p>';
+        this.elements.reportHistory.innerHTML = '<p>Nenhum registro.</p>';
+        this.elements.performanceHistory.innerHTML = '<p>Nenhum registro.</p>';
     },
 
     async addHistoryEntry(event, historyType, formElement) {
         event.preventDefault();
-        if (!this.state.currentStudentId) {
-            alert('É necessário salvar o aluno antes de adicionar registros ao histórico.');
-            return;
-        }
+        if (!this.state.currentStudentId) return alert('É necessário salvar o aluno antes de adicionar registros ao histórico.');
 
-        const inputs = formElement.querySelectorAll('input, select, textarea');
         const entry = { id: Date.now().toString(), createdAt: new Date().toISOString() };
         let isValid = true;
-        inputs.forEach(input => {
-            if (input.required && !input.value) isValid = false;
-            // Simplifica a chave, ex: 'programmingDate' vira 'date'
-            const key = input.id.replace(/^(programming|report|performance)/, '').charAt(0).toLowerCase() + input.id.slice(1).replace(/^(rogramming|eport|erformance)/, '');
-            if(input.type !== 'file') entry[key] = input.value;
+        new FormData(formElement).forEach((value, key) => {
+            const element = formElement.querySelector(`[name="${key}"]`);
+            if (element && element.required && !value) isValid = false;
+            entry[key] = value;
         });
 
-        if (!isValid) {
-            alert('Por favor, preencha todos os campos obrigatórios.');
-            return;
+        if (!isValid) return alert('Por favor, preencha todos os campos obrigatórios.');
+
+        if (historyType === 'programmingHistory') {
+            entry.completed = false;
+            entry.corrected = false;
+            entry.grade = '';
+        }
+        
+        const fileInput = formElement.querySelector('input[type="file"]');
+        if (historyType === 'reportHistory' && fileInput && fileInput.files[0]) {
+            try { entry.fileurl = await this.uploadFileToCloudinary(fileInput.files[0], 'boletins'); } 
+            catch (error) { console.error('Erro no upload:', error); alert('Erro no upload do arquivo.'); }
         }
 
-        if (historyType === 'reportHistory') {
-            const fileInput = formElement.querySelector('input[type="file"]');
-            if (fileInput.files.length > 0) {
-                try { entry.fileurl = await this.uploadFileToCloudinary(fileInput.files[0], 'boletins'); } 
-                catch (error) { console.error('Erro no upload:', error); alert('Erro no upload do arquivo.'); }
-            }
-        }
-
-        this.state.students[this.state.currentStudentId][historyType].push(entry);
+        const student = this.state.students[this.state.currentStudentId];
+        student[historyType] = [...(student[historyType] || []), entry];
 
         try {
             await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
-            this.renderHistory(historyType, this.state.students[this.state.currentStudentId][historyType]);
+            
+            if (historyType === 'programmingHistory' && entry.material) {
+                const materialId = entry.material.trim().replace(/\s/g, '_');
+                await this.updateStock('remove', 1, materialId, true);
+            }
+
+            this.renderHistory(historyType, student[historyType]);
             formElement.reset();
         } catch (error) {
             console.error('Erro ao salvar histórico:', error);
             alert('Falha ao salvar o registro.');
-            this.state.students[this.state.currentStudentId][historyType].pop();
+            student[historyType].pop();
         }
     },
 
@@ -714,24 +632,39 @@ const App = {
     },
 
     createHistoryItemHTML(type, entry) {
-        let detailsHTML = '';
         const date = entry.date ? new Date(entry.date + 'T12:00:00Z').toLocaleDateString('pt-BR') : 'Data Inválida';
+        
+        if (type === 'programmingHistory') {
+            return `
+                <div class="history-item programming-item">
+                    <div class="history-item-header">
+                        <span class="history-date">${date}</span>
+                        <span class="history-type">PROGRAMAÇÃO</span>
+                    </div>
+                    <div class="history-details"><strong>Material:</strong> ${entry.material || ''}</div>
+                    ${entry.notes ? `<div class="history-details"><strong>Obs:</strong> ${entry.notes}</div>` : ''}
+                    <div class="programming-status">
+                        <label><input type="checkbox" ${entry.completed ? 'checked' : ''} onchange="App.updateProgrammingStatus('${entry.id}', 'completed', this.checked)"> Realizado</label>
+                        <label><input type="checkbox" ${entry.corrected ? 'checked' : ''} onchange="App.updateProgrammingStatus('${entry.id}', 'corrected', this.checked)"> Corrigido</label>
+                        <label>Nota: <input type="text" class="programming-grade-input" value="${entry.grade || ''}" onchange="App.updateProgrammingStatus('${entry.id}', 'grade', this.value)"></label>
+                    </div>
+                    <button class="delete-history-btn" onclick="App.deleteHistoryEntry('${type}', '${entry.id}')" title="Excluir">&times;</button>
+                </div>`;
+        }
+        
+        let detailsHTML = '';
         switch (type) {
-            case 'programmingHistory':
-                detailsHTML = `<div class="history-details"><strong>Material:</strong> ${entry.material || ''}</div>${entry.notes ? `<div class="history-details"><strong>Obs:</strong> ${entry.notes}</div>` : ''}`;
-                break;
             case 'reportHistory':
                 detailsHTML = `<div class="history-details"><strong>${entry.subject || ''}:</strong> Nota ${entry.grade || 'N/A'}</div>${entry.fileurl ? `<div class="history-file">📎 <a href="${entry.fileurl}" target="_blank">Ver anexo</a></div>` : ''}`;
                 break;
             case 'performanceLog':
-                detailsHTML = `<div class="history-details">${entry.details || ''}</div>`;
+                detailsHTML = `<div class="history-details"><strong>${entry.type || 'REGISTRO'}:</strong> ${entry.details || ''}</div>`;
                 break;
         }
         return `
             <div class="history-item">
                 <div class="history-item-header">
                     <span class="history-date">${date}</span>
-                    <span class="history-type">${entry.type || 'REGISTRO'}</span>
                 </div>
                 ${detailsHTML}
                 <button class="delete-history-btn" onclick="App.deleteHistoryEntry('${type}', '${entry.id}')" title="Excluir">&times;</button>
@@ -739,15 +672,27 @@ const App = {
     },
 
     async deleteHistoryEntry(historyType, entryId) {
-        if (!confirm('Tem certeza que deseja excluir este registro do histórico?')) return;
+        if (!confirm('Excluir este registro?')) return;
         const student = this.state.students[this.state.currentStudentId];
-        student[historyType] = student[historyType].filter(entry => entry.id !== entryId);
+        student[historyType] = student[historyType].filter(e => e.id !== entryId);
+        await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
+        this.renderHistory(historyType, student[historyType]);
+    },
+
+    async updateProgrammingStatus(entryId, field, value) {
+        if (!this.state.currentStudentId) return;
+
+        const student = this.state.students[this.state.currentStudentId];
+        const programmingEntry = student.programmingHistory.find(p => p.id === entryId);
+        if (!programmingEntry) return;
+
+        programmingEntry[field] = value;
+        
         try {
             await this.saveData('alunos', 'lista_alunos', { students: this.state.students });
-            this.renderHistory(historyType, student[historyType]);
         } catch (error) {
-            alert('Falha ao excluir o registro.');
-            console.error(error);
+            console.error("Erro ao atualizar status da programação:", error);
+            alert("Não foi possível salvar a alteração. A página será recarregada para garantir a consistência dos dados.");
             this.loadStudents();
         }
     },
@@ -774,7 +719,8 @@ const App = {
         }
         const alerts = (student.performanceLog || []).filter(e => e.type === 'ALERTA');
         if (alerts.length > 0) {
-            analysis += `⚡️ ALERTA(S) MANUAL(IS) REGISTRADO(S):\n   - "${alerts[alerts.length - 1].details}" (${new Date(alerts[alerts.length - 1].date + 'T12:00:00Z').toLocaleDateString('pt-BR')})\n   AÇÃO: Verificar se o problema foi resolvido.\n\n`;
+            const lastAlert = alerts[alerts.length - 1];
+            analysis += `⚡️ ALERTA(S) MANUAL(IS) REGISTRADO(S):\n   - "${lastAlert.details}" (${new Date(lastAlert.date + 'T12:00:00Z').toLocaleDateString('pt-BR')})\n   AÇÃO: Verificar se o problema foi resolvido.\n\n`;
         }
         analysis += `💡 SUGESTÃO ESTRATÉGICA:\n`;
         if (repetitions.length >= 3 && lowGrades.length > 0) {
