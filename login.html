@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acesso - Central de Comando Kumon</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body class="bg-gray-900">
+    <div class="login-container">
+        <h1 class="text-3xl font-bold text-cyan-400 mb-2 text-center">Central de Comando</h1>
+        <p class="text-lg font-semibold text-white text-center">Kumon</p>
+        <form id="login-form" class="mt-8 text-left">
+            <div class="mb-4">
+                <label for="email" class="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                <input type="email" id="email" required class="form-input bg-gray-700">
+            </div>
+            <div class="mb-6">
+                <label for="password" class="block text-sm font-medium text-gray-300 mb-1">Senha</label>
+                <input type="password" id="password" required class="form-input bg-gray-700">
+            </div>
+            <button type="submit" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded">Entrar</button>
+            <p id="login-error" class="text-red-500 text-sm mt-4 text-center h-4"></p>
+        </form>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

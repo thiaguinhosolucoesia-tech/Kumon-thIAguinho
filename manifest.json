@@ -1,0 +1,13 @@
+{
+  "name": "Central de Comando Kumon",
+  "short_name": "Comando Kumon",
+  "start_url": "./login.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0078c1",
+  "description": "Plataforma de gestão completa para unidades Kumon.",
+  "icons": [
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

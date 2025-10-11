@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Central de Comando - Kumon</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="theme-color" content="#0078c1">
+    <link href="https://cdn.jsdelivr.net/npm/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+</head>
+<body id="app-page">
+    <div id="loading-overlay" class="fixed inset-0 bg-gray-900 flex flex-col items-center justify-center z-[200]">
+        <div class="loader"></div>
+        <p class="text-cyan-400 mt-4">A carregar Central de Comando...</p>
+    </div>
+
+    <div id="app-container" class="container hidden">
+        <header>
+            <div class="header-content">
+                <div>
+                    <h1>Central de Comando</h1>
+                    <p class="unit-name">Kumon Unidade Rio Preto Shopping</p>
+                </div>
+                <div class="user-info">
+                    <p id="userEmail" class="font-semibold"></p>
+                    <div class="header-actions">
+                        <button id="system-options-btn" class="options-btn" title="Clique para opções de sistema (Reset)">
+                            <i class='bx bx-cog'></i>
+                            <span>Opções</span>
+                        </button>
+                        <button id="logout-button" class="logout-btn">Sair</button>
+                    </div>
+                </div>
+            </div>
+            <div class="date-navigation">
+                <button id="prevDayBtn" class="nav-btn">&lt;</button>
+                <div id="currentDateDisplay">Carregando...</div>
+                <button id="nextDayBtn" class="nav-btn">&gt;</button>
+            </div>
+        </header>
+
+        <main>
+            <fieldset id="dailyLogModule">
+                <legend>Diário de Bordo</legend>
+                <section id="actionBank" class="section-box">
+                    <details open>
+                        <summary>💡 Mentor Estratégico Kumon</summary>
+                        <div id="actionBank-content"></div>
+                    </details>
+                </section>
+                <fieldset id="planningFieldset">
+                    <h3>🗓️ Planejamento</h3>
+                    <div class="form-section"><label for="dailyFocus">🎯 Foco Principal</label><input type="text" id="dailyFocus" placeholder="Ex: Aumentar a retenção de alunos de matemática em 5%"></div>
+                    <div class="form-section"><label for="criticalTasks">⚡ Tarefas Críticas</label><textarea id="criticalTasks" rows="3" placeholder="Ex: Ligar para a mãe do aluno X para alinhar o avanço. Treinar o novo auxiliar na correção dos blocos iniciais."></textarea></div>
+                    <div class="form-section"><label for="new-todo-input">📋 A Realizar</label><div><input type="text" id="new-todo-input" placeholder="Adicionar nova tarefa..."><button id="add-todo-btn" class="btn">+</button></div><ul id="todo-list"></ul></div>
+                </fieldset>
+                <fieldset id="reviewFieldset">
+                    <h3>🧐 Revisão</h3>
+                     <div class="form-section"><label for="mainAchievement">🏆 Conquista Principal</label><input type="text" id="mainAchievement" placeholder="Ex: Revertemos o cancelamento do aluno Y."></div>
+                     <div class="form-section"><label for="mainChallenge">🧗 Principal Desafio/Aprendizado</label><input type="text" id="mainChallenge" placeholder="Ex: Perda de tempo excessiva na organização dos materiais. Preciso delegar."></div>
+                     <div class="form-section"><label for="kpiMatriculas">📈 Matrículas</label><input type="number" id="kpiMatriculas" min="0" value="0"></div>
+                     <div class="form-section"><label for="kpiCancelamentos">📉 Cancelamentos</label><input type="number" id="kpiCancelamentos" min="0" value="0"></div>
+                     <div class="form-section"><label for="energyLevel">⚡ Nível de Energia (1 a 5)</label><input type="range" id="energyLevel" min="1" max="5" value="3"></div>
+                </fieldset>
+                <div class="button-container">
+                    <button id="endDayBtn" class="btn">Analisar e Finalizar Dia</button>
+                    <button id="showWeeklySummaryBtn" class="btn">Gerar Resumo da Semana</button>
+                </div>
+                <section id="dailyReportSection" class="section-box hidden">
+                    <h2>📊 Relatório do Dia</h2>
+                    <pre id="dailyReportContent"></pre>
+                    <div class="button-container">
+                        <button id="downloadDailyReportBtn" class="btn download-btn">Download Relatório Diário</button>
+                    </div>
+                </section>
+                <section id="weeklySummarySection" class="section-box hidden">
+                    <h2>🧠 Análise de Performance Semanal</h2>
+                    <pre id="weeklySummaryContent"></pre>
+                     <div class="button-container">
+                        <button id="downloadWeeklyReportBtn" class="btn download-btn">Download Resumo Semanal</button>
+                    </div>
+                </section>
+            </fieldset>
+
+            <fieldset id="inventoryModule">
+                <legend>Gestão de Inventário</legend>
+                <div class="grid-2-col">
+                    <div class="form-section"><label for="materialSelect">Material</label><select id="materialSelect"></select></div>
+                    <div class="form-section"><label for="materialQty">Quantidade</label><input type="number" id="materialQty" value="10"></div>
+                </div>
+                <div class="button-container">
+                    <button id="addStockBtn" class="btn">Dar Entrada</button>
+                    <button id="removeStockBtn" class="btn" style="background-color: var(--kumon-red);">Dar Baixa</button>
+                </div>
+                 <div class="form-section">
+                    <label>Controlo de Estoque</label>
+                    <table id="inventory-table">
+                        <thead><tr><th>Material</th><th>Quantidade</th><th>Ficheiro</th></tr></thead>
+                        <tbody id="inventory-tbody"><tr><td colspan="3">A carregar...</td></tr></tbody>
+                    </table>
+                </div>
+                 <div class="button-container">
+                    <button id="uploadFileBtn" class="btn">Anexar Foto / Nota Fiscal</button>
+                </div>
+            </fieldset>
+
+            <fieldset id="studentsModule">
+                <legend>Gestão de Alunos Inteligente</legend>
+                <div class="students-header">
+                    <div class="button-container">
+                        <button id="addStudentBtn" class="btn">👨‍🎓 Adicionar Novo Aluno</button>
+                    </div>
+                    <div class="form-section">
+                        <label for="studentSearch">🔍 Pesquisar Aluno</label>
+                        <input type="text" id="studentSearch" placeholder="Digite o nome do aluno ou do responsável...">
+                    </div>
+                </div>
+                <div id="student-list" class="student-list">
+                    </div>
+            </fieldset>
+        </main>
+        
+        <footer>
+            <p>Desenvolvido com 🤖, por thIAguinho Soluções</p>
+        </footer>
+    </div>
+
+    <div id="studentModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">📋 Ficha do Aluno</h2>
+                <button id="closeModalBtn" class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="studentForm">
+                    <input type="hidden" id="studentId">
+                    <div class="grid-2-col">
+                        <div class="form-section">
+                            <label for="studentName">Nome do Aluno</label>
+                            <input type="text" id="studentName" required>
+                        </div>
+                        <div class="form-section">
+                            <label for="studentResponsible">Responsável</label>
+                            <input type="text" id="studentResponsible" required>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <label for="studentContact">Contato (Telefone/Email)</label>
+                        <input type="text" id="studentContact" placeholder="Ex: (17) 99999-9999">
+                    </div>
+                    <div class="grid-3-col">
+                        <div class="form-section">
+                            <label for="mathStage">Estágio Matemática</label>
+                            <input type="text" id="mathStage" placeholder="Ex: D150">
+                        </div>
+                        <div class="form-section">
+                            <label for="portStage">Estágio Português</label>
+                            <input type="text" id="portStage" placeholder="Ex: CII 100">
+                        </div>
+                        <div class="form-section">
+                            <label for="engStage">Estágio Inglês</label>
+                            <input type="text" id="engStage" placeholder="Ex: G 50">
+                        </div>
+                    </div>
+                </form>
+
+                <div class="tabs-container">
+                    <div class="tabs-header">
+                        <button class="tab-btn active" data-tab="programming">📅 Programação</button>
+                        <button class="tab-btn" data-tab="reports">📊 Boletins</button>
+                        <button class="tab-btn" data-tab="performance">⚡ Desempenho</button>
+                        <button class="tab-btn" data-tab="analysis">🤖 Análise IA</button>
+                    </div>
+
+                    <div id="tab-programming" class="tab-content active">
+                        <h3>📅 Programação de Material</h3>
+                        <form id="programmingForm" class="inline-form">
+                            <div class="grid-2-col">
+                                <div class="form-section">
+                                    <label for="programmingDate">Data</label>
+                                    <input type="date" id="programmingDate" required>
+                                </div>
+                                <div class="form-section">
+                                    <label for="programmingMaterial">Material</label>
+                                    <input type="text" id="programmingMaterial" placeholder="Ex: Matemática D1-D10" required>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <label for="programmingNotes">Observações</label>
+                                <textarea id="programmingNotes" rows="2" placeholder="Ex: Foco em operações básicas"></textarea>
+                            </div>
+                            <button type="submit" class="btn">Adicionar Programação</button>
+                        </form>
+                        <div class="history-section">
+                            <h4>Histórico de Programação</h4>
+                            <div id="programmingHistory" class="history-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="tab-reports" class="tab-content">
+                        <h3>📊 Boletins Escolares</h3>
+                        <form id="reportForm" class="inline-form">
+                            <div class="grid-3-col">
+                                <div class="form-section">
+                                    <label for="reportDate">Data do Boletim</label>
+                                    <input type="date" id="reportDate" required>
+                                </div>
+                                <div class="form-section">
+                                    <label for="reportSubject">Disciplina</label>
+                                    <select id="reportSubject" required>
+                                        <option value="" disabled selected>Selecione...</option>
+                                        <option value="Matemática">Matemática</option>
+                                        <option value="Português">Português</option>
+                                        <option value="Inglês">Inglês</option>
+                                        <option value="História">História</option>
+                                        <option value="Geografia">Geografia</option>
+                                        <option value="Ciências">Ciências</option>
+                                        <option value="Física">Física</option>
+                                        <option value="Química">Química</option>
+                                        <option value="Biologia">Biologia</option>
+                                        <option value="Outra">Outra</option>
+                                    </select>
+                                </div>
+                                <div class="form-section">
+                                    <label for="reportGrade">Nota (0 a 10)</label>
+                                    <input type="number" id="reportGrade" min="0" max="10" step="0.1" required>
+                                </div>
+                            </div>
+                            <div class="form-section">
+                                <label for="reportFile">Anexar Boletim (Foto ou PDF)</label>
+                                <input type="file" id="reportFile" accept="image/*,.pdf">
+                            </div>
+                            <button type="submit" class="btn">Adicionar Boletim</button>
+                        </form>
+                        <div class="history-section">
+                            <h4>Histórico de Boletins</h4>
+                            <div id="reportHistory" class="history-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="tab-performance" class="tab-content">
+                        <h3>⚡ Registro de Desempenho</h3>
+                        <form id="performanceForm" class="inline-form">
+                            <div class="grid-3-col">
+                                <div class="form-section">
+                                    <label for="performanceDate">Data</label>
+                                    <input type="date" id="performanceDate" required>
+                                </div>
+                                <div class="form-section">
+                                    <label for="performanceType">Tipo de Registro</label>
+                                    <select id="performanceType" required>
+                                        <option value="" disabled selected>Selecione...</option>
+                                        <option value="PREVISAO">Previsão de Tempo</option>
+                                        <option value="CORRECAO">Correção (100%)</option>
+                                        <option value="REPETICAO">Repetição de Bloco</option>
+                                        <option value="CONCLUSAO">Conclusão de Estágio</option>
+                                        <option value="ELOGIO">Elogio / Comportamento</option>
+                                        <option value="ALERTA">Alerta / Dificuldade</option>
+                                    </select>
+                                </div>
+                                <div class="form-section">
+                                    <label for="performanceDetails">Detalhes</label>
+                                    <input type="text" id="performanceDetails" placeholder="Ex: Previsão 15min, concluiu em 12min" required>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn">Adicionar Registro</button>
+                        </form>
+                        <div class="history-section">
+                            <h4>Histórico de Desempenho</h4>
+                            <div id="performanceHistory" class="history-list"></div>
+                        </div>
+                    </div>
+
+                    <div id="tab-analysis" class="tab-content">
+                        <h3>🤖 Análise Inteligente</h3>
+                        <div class="analysis-section">
+                            <div class="analysis-header">
+                                <p>💡 <strong>Insights baseados no histórico do aluno:</strong></p>
+                                <button id="refreshAnalysisBtn" class="btn btn-small">🔄 Gerar Nova Análise</button>
+                            </div>
+                            <pre id="student-analysis-content" class="analysis-content">Clique em "Gerar Nova Análise" para começar.</pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="saveStudentBtn" class="btn">💾 Salvar Aluno</button>
+                <button id="deleteStudentBtn" class="btn btn-danger">🗑️ Excluir Aluno</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <script src="https://upload-widget.cloudinary.com/global/all.js" type="text/javascript"></script>  
+    
+    <script src="js/config.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/auth.js"></script>
+</body>
+</html>
